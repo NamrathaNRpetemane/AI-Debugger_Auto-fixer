@@ -1,0 +1,7 @@
+python-dotenv
+openai
+requests
+google-generativeai
+scrapling
+grpcio
+grpcio-tools
