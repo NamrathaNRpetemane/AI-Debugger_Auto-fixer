@@ -80,5 +80,5 @@ def main():
 
     asyncio.run(debug_with_explanation(debugger))
 
-if _name_ == "_main_":
+if __name__ == "_main_":
     main()
