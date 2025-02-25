@@ -6,12 +6,28 @@ from dotenv import load_dotenv
 from src.core.debugger import CodeDebugger
 from src.core.llm_factory import LLMFactory
 from datetime import datetime
-import re
 from configs.default_config import DEFAULT_CONFIG
 
-
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
+
+async def debug_with_explanation(debugger):
+    print("Step 1: Scanning for errors...")
+    errors = await debugger.detect_errors()  
+
+    if not errors:
+        print("No errors found!")
+        return
+
+    print("\nStep 2: Generating fix suggestions...")
+    fix_suggestions = await debugger.generate_fixes(errors)  
+
+    print("\nStep 3: Applying fixes with explanations...")
+    for fix in fix_suggestions:
+        fixed_code, explanation = await debugger.apply_fix(fix)  
+        print(f"Fix: {fix}\nExplanation: {explanation}\n")
+
+    print("Debugging process completed!")
 
 def main():
     parser = argparse.ArgumentParser(description="Debug Python code using an LLM.")
@@ -30,51 +46,39 @@ def main():
 
     args = parser.parse_args()
 
-    # Extract the folder name from the given path
     project_folder_name = os.path.basename(args.code_dir)
-    
-    # Construct debug directory path
     debug_dir = os.path.join(args.code_dir, f"debug_{project_folder_name}")
-
-    # Create the debug directory if it does not exist
     os.makedirs(debug_dir, exist_ok=True)
-   
-    # Construct the log file path within the project directory
-    log_file_name = os.path.join(debug_dir, f"debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-    
-    # Configure Logging with the new log file path
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.FileHandler(log_file_name),
-                        logging.StreamHandler()
-                    ])
 
+    log_file_name = os.path.join(debug_dir, f"debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=[logging.FileHandler(log_file_name), logging.StreamHandler()])
 
     llm_config = {}
     if args.llm_type == "openai":
         llm_config = {"model_name": args.openai_model, "base_url": args.openai_base_url}
     elif args.llm_type == "huggingface":
-        llm_config = {"model_id": args.huggingface_model, "device":args.huggingface_device}
+        llm_config = {"model_id": args.huggingface_model, "device": args.huggingface_device}
     elif args.llm_type == "gemini":
-         llm_config = {"model_name":args.gemini_model}
+        llm_config = {"model_name": args.gemini_model}
 
     try:
-      llm_instance = LLMFactory.create_llm(args.llm_type, llm_config)
+        llm_instance = LLMFactory.create_llm(args.llm_type, llm_config)
     except ValueError as e:
-         logging.error(e)
-         exit(1)
+        logging.error(e)
+        exit(1)
 
     debugger = CodeDebugger(
-         code_dir=args.code_dir,
-         max_attempts=args.max_attempts,
-         files_to_debug=args.files_to_debug,
-         enable_internet_search = args.enable_internet_search,
-         num_search_urls = args.num_search_urls,
-         internet_search_threshold = args.internet_search_threshold,
-         llm = llm_instance
+        code_dir=args.code_dir,
+        max_attempts=args.max_attempts,
+        files_to_debug=args.files_to_debug,
+        enable_internet_search=args.enable_internet_search,
+        num_search_urls=args.num_search_urls,
+        internet_search_threshold=args.internet_search_threshold,
+        llm=llm_instance
     )
-    asyncio.run(debugger.debug())
 
+    asyncio.run(debug_with_explanation(debugger))
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
